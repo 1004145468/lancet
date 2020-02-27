@@ -1,3 +1,43 @@
+//整体过程：
+1. 第一次遍历，采用将DirectInput和JarInput平滑成class，然后采用ClassReader将获取的class包装成
+    ClassInfo对象，存入到map中，整个遍历结束后，将map转化为类继承关系图。于此同时，如果遍历的类是
+    插入配置类，将类路径保存
+
+2. 将获取到的配置类路径用classloader的方式获取到URL，通过URLConnection打开流，最后还是采用ClassReader
+    获取到配置类所有注解注解信息
+
+    2.1
+            URL[] urls = Stream.concat(context.getAllJars().stream(), context.getAllDirs().stream()).map(QualifiedContent::getFile)
+                    .map(File::toURI)
+                    .map(u -> {
+                        try {
+                            return u.toURL();
+                        } catch (MalformedURLException e) {
+                            throw new AssertionError(e);
+                        }
+                    })
+                    .toArray(URL[]::new);
+            Log.d("urls:\n" + Joiner.on("\n ").join(urls));
+            ClassLoader cl = URLClassLoader.newInstance(urls, null);
+
+    2.2
+            URL url = cl.getResource(className + ".class");
+            if (url == null) {
+                throw new IOException("url == null");
+            }
+            URLConnection urlConnection = url.openConnection();
+            urlConnection.setUseCaches(false);
+            ClassReader cr = new ClassReader(urlConnection.getInputStream());
+            urlConnection.getInputStream().close();
+            ClassNode cn = new ClassNode();
+            cr.accept(cn, ClassReader.SKIP_DEBUG);
+
+
+3. 采用责任链的方式，将上面获取到的配置信息，以ASM的方式指定插入到代码中
+
+
+
+
 # Lancet
 
 [Chinese README](README_zh.md)
